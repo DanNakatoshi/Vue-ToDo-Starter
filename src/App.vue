@@ -50,40 +50,58 @@
 </template>
 
 <script setup>
-import { ref, reactive } from 'vue';
+import { ref, onMounted } from 'vue';
+import { db } from './plugins/firebase.js';
+import {
+  collection,
+  doc,
+  onSnapshot,
+  addDoc,
+  updateDoc,
+  deleteDoc,
+  query,
+  orderBy,
+} from 'firebase/firestore';
+
+const todosCollection = collection(db, 'todos');
+const todosQuery = query(todosCollection, orderBy('date', 'desc'));
 
 const todoInput = ref('');
+const todos = ref();
 
-const todos = reactive([
-  {
-    id: 1,
-    title: 'Task to do',
-    isCompleted: true,
-  },
-  {
-    id: 2,
-    title: 'Task to do',
-    isCompleted: false,
-  },
-]);
+onMounted(() => {
+  onSnapshot(todosQuery, (querySnapshot) => {
+    const fbTodos = [];
+    querySnapshot.forEach((doc) => {
+      const todo = {
+        id: doc.id,
+        title: doc.data().title,
+        isCompleted: doc.data().isCompleted,
+        date: doc.data().date,
+      };
+      fbTodos.push(todo);
+    });
+    todos.value = fbTodos;
+  });
+});
 
 function deleteTodo(id) {
-  todos.pop(id);
-  console.log('delete');
+  deleteDoc(doc(todosCollection, id));
 }
 
 function addTodo() {
-  todos.push({
-    id: todos.length + 1,
+  addDoc(todosCollection, {
     title: todoInput.value,
     isCompleted: false,
+    date: new Date(),
   });
   todoInput.value = '';
-  console.log('add');
 }
 
 function toggleComplete(id) {
-  const index = todos.findIndex((todo) => todo.id === id);
-  todos[index].isCompleted = !todos[index].isCompleted;
+  const index = todos.value.findIndex((todo) => todo.id === id);
+  updateDoc(doc(todosCollection, id), {
+    isCompleted: !todos.value[index].isCompleted,
+  });
 }
 </script>
